@@ -1,0 +1,10 @@
+CompileFlags:
+  Remove:
+    - -fmin-function-alignment*
+    - -fconserve-stack*
+    - -fdiagnostics-show-context*
+    - -fzero-init-padding-bits*
+    - -fno-allow-store-data-races*
+    - -mpreferred-stack-boundary*
+    - -mrecord-mcount*
+    - -mindirect-branch*
