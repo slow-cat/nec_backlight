@@ -2,8 +2,12 @@
 Linux support for the keyboard backlight on the NEC LAVIE N15 `PC-N1585EAL-YC`.
 
 ## Features
-- Exposes the keyboard backlight as `/sys/class/leds/nec::kbd_backlight`
 - Handles the keyboard backlight key to change brightness.
+- Exposes the keyboard backlight as `/sys/class/leds/nec::kbd_backlight`
+
+```bash
+brightnessctl -d 'nec::kbd_backlight' set 1
+```
 
 ## Building
 ```bash
