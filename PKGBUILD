@@ -4,22 +4,21 @@ pkgver=1
 pkgrel=1
 pkgdesc="NEC LAVIE N15 keyboard backlight driver"
 arch=('x86_64')
-url="https://www.example.org/"
+url="https://github.com/slow-cat/nec_backlight/archive/refs/tags/"
 license=('CC0-1.0')
 depends=('dkms')
 conflicts=("${_pkgbase}")
-# install=${pkgname}.install
 source=(
-	# "${url}/files/tarball.tar.gz"
-	'dkms.conf'
-	'nec_kbd_backlight.c'
-	'Makefile'
+	"$pkgname-$pkgver.tar.gz::${url}/v${pkgver}.tar.gz"
+	# 'dkms.conf'
+	# 'nec_kbd_backlight.c'
+	# 'Makefile'
 )
 md5sums=(
 	# use 'updpkgsums'
 	'SKIP'
-	'SKIP'
-	'SKIP'
+	# 'SKIP'
+	# 'SKIP'
 )
 
 # prepare() {
@@ -31,6 +30,7 @@ md5sums=(
 
 package() {
   # Copy dkms.conf
+  cd "${srcdir}/nec_backlight-${pkgver}"
   local dest="${pkgdir}"/usr/src/${_pkgbase}-${pkgver}
   install -Dm644 dkms.conf "${dest}"/dkms.conf
   install -Dm644 Makefile "${dest}"/Makefile
