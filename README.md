@@ -11,6 +11,7 @@ brightnessctl -d 'nec::kbd_backlight' set 1
 
 ## Installation
 No need to clone this entire repository, but to get only `PKGBUILD`.
+
 Better to build in `/tmp`, as `makepkg` may create many files in the current directory.
 
 ```bash
