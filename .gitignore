@@ -2,3 +2,4 @@
 src
 pkg
 *.zst
+compile_commands.json

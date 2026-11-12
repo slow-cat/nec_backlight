@@ -28,3 +28,15 @@ makepkg -si
 <!-- #unload -->
 <!-- sudo rmmod ./build/nec_kbd_backlight.ko -->
 <!-- ``` -->
+
+## Editor setup (clangd)
+
+With the headers for the target kernel installed, run:
+
+```bash
+make clangd
+```
+
+This builds the module and regenerates `compile_commands.json` from the actual
+build commands. Run it again after a kernel update, then restart clangd in your
+editor. To target another kernel, use `make clangd KDIR=/path/to/kernel/build`.
