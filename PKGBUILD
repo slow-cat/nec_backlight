@@ -1,6 +1,6 @@
 _pkgbase=nec_kbd_backlight
 pkgname=nec_kbd_backlight-dkms
-pkgver=1
+pkgver=2
 pkgrel=1
 pkgdesc="NEC LAVIE N15 keyboard backlight driver"
 arch=('x86_64')
