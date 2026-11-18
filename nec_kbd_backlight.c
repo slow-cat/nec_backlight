@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: CC0-1.0 OR GPL-2.0-only
 #include <linux/acpi.h>
+#include <linux/devm-helpers.h>
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 
@@ -14,7 +16,7 @@
 #define NEC_KBD_MAX    10
 
 struct nec_kbd {
-	struct acpi_device *adev;
+	struct device *dev;
 	acpi_handle hwui;
 
 	struct led_classdev led;
@@ -77,7 +79,7 @@ static enum led_brightness nec_led_get(struct led_classdev *led)
 	mutex_unlock(&kbd->lock);
 
 	if (ret) {
-		dev_warn_ratelimited(&kbd->adev->dev,
+		dev_warn_ratelimited(kbd->dev,
 				     "GKBS failed: %d\n", ret);
 		return led->brightness;
 	}
@@ -132,40 +134,36 @@ out:
 	mutex_unlock(&kbd->lock);
 
 	if (ret)
-		dev_warn(&kbd->adev->dev,
+		dev_warn(kbd->dev,
 			 "keyboard backlight toggle failed: %d\n", ret);
 }
 
-static void nec_notify(struct acpi_device *adev, u32 event)
+static void nec_notify(acpi_handle handle, u32 event, void *context)
 {
-	/*照明キーを押すことで0x83への通知が行くのでそれに答える処理をする*/
-	struct nec_kbd *kbd = adev->driver_data;
-
-	if (!kbd)
-		return;
+	struct nec_kbd *kbd = context;
 
 	if (event == NEC_NOTIFY_KBD_BACKLIGHT) {
 		schedule_work(&kbd->toggle_work);
 		return;
 	}
 
-	dev_dbg(&adev->dev, "unknown notify 0x%x\n", event);
+	dev_dbg(kbd->dev, "unknown notify 0x%x\n", event);
 }
 
-static int nec_add(struct acpi_device *adev)
+static int nec_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct nec_kbd *kbd;
 	unsigned int level = 0;
 	acpi_status status;
 	int ret;
 
-	kbd = devm_kzalloc(&adev->dev, sizeof(*kbd), GFP_KERNEL);
+	kbd = devm_kzalloc(dev, sizeof(*kbd), GFP_KERNEL);
 	if (!kbd)
 		return -ENOMEM;
 
-	kbd->adev = adev;
+	kbd->dev = dev;
 	mutex_init(&kbd->lock);
-	INIT_WORK(&kbd->toggle_work, nec_toggle_work);
 
 	/*
 	 * DSDT:
@@ -175,7 +173,7 @@ static int nec_add(struct acpi_device *adev)
 	 */
 	status = acpi_get_handle(NULL, "\\_SB.HWUI", &kbd->hwui);
 	if (ACPI_FAILURE(status)) {
-		dev_err(&adev->dev, "cannot find \\_SB.HWUI\n");
+		dev_err(dev, "cannot find \\_SB.HWUI\n");
 		return -ENODEV;
 	}
 
@@ -187,29 +185,25 @@ static int nec_add(struct acpi_device *adev)
 	if (!nec_get_level_nolock(kbd, &level))
 		kbd->led.brightness = level;
 
-	adev->driver_data = kbd;
-
-	ret = devm_led_classdev_register(&adev->dev, &kbd->led);
-	if (ret) {
-		adev->driver_data = NULL;
+	ret = devm_led_classdev_register(dev, &kbd->led);
+	if (ret)
 		return ret;
-	}
 
-	dev_info(&adev->dev,
+	/* On detach, remove the notifier before cancelling its work. */
+	ret = devm_work_autocancel(dev, &kbd->toggle_work, nec_toggle_work);
+	if (ret)
+		return ret;
+
+	ret = devm_acpi_install_notify_handler(dev, ACPI_DEVICE_NOTIFY,
+					     nec_notify, kbd);
+	if (ret)
+		return ret;
+
+	dev_info(dev,
 		 "NEC keyboard backlight registered, brightness=%u\n",
 		 level);
 
 	return 0;
-}
-
-static void nec_remove(struct acpi_device *adev)
-{
-	struct nec_kbd *kbd = adev->driver_data;
-
-	if (kbd)
-		cancel_work_sync(&kbd->toggle_work);
-
-	adev->driver_data = NULL;
 }
 
 static const struct acpi_device_id nec_ids[] = {
@@ -218,18 +212,15 @@ static const struct acpi_device_id nec_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, nec_ids);
 
-static struct acpi_driver nec_driver = {
-	.name = "nec-kbd-backlight",
-	.class = "nec-kbd-backlight",
-	.ids = nec_ids,
-	.ops = {
-		.add = nec_add,
-		.remove = nec_remove,
-		.notify = nec_notify,
+static struct platform_driver nec_driver = {
+	.probe = nec_probe,
+	.driver = {
+		.name = "nec-kbd-backlight",
+		.acpi_match_table = nec_ids,
 	},
 };
 
-module_acpi_driver(nec_driver);
+module_platform_driver(nec_driver);
 
 MODULE_AUTHOR("moamoa");
 MODULE_DESCRIPTION("NEC LAVIE N15 keyboard backlight driver");
